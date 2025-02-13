@@ -1,6 +1,10 @@
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
+import nltk
+
+# Download required tokenizer (Fixes LookupError)
+nltk.download("punkt")
 
 def summarize_text(text, num_sentences=3):
     parser = PlaintextParser.from_string(text, Tokenizer("english"))

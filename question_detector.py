@@ -1,15 +1,10 @@
-import spacy
+import nltk
+from nltk.tokenize import sent_tokenize
 
-# Load the English NLP model
-nlp = spacy.load("en_core_web_sm")
+# Download necessary NLP model (only needed once)
+nltk.download("punkt")
 
 def detect_questions(text):
-    doc = nlp(text)
-    questions = [sent.text for sent in doc.sents if "?" in sent.text]
+    sentences = sent_tokenize(text)
+    questions = [sent for sent in sentences if "?" in sent]
     return questions
-
-# Test Function
-if __name__ == "__main__":
-    sample_text = "What is AI? AI stands for Artificial Intelligence. How does it work? It learns from data."
-    questions_found = detect_questions(sample_text)
-    print("Detected Questions:", questions_found)

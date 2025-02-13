@@ -3,7 +3,7 @@ from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 import nltk
 
-# Download required tokenizer (Fixes LookupError)
+# Fix: Download the required NLTK data before using it
 nltk.download("punkt")
 
 def summarize_text(text, num_sentences=3):

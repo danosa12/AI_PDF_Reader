@@ -1,39 +1,66 @@
-import streamlit as st
-from pdf_extractor import extract_text_from_pdf
-from question_detector import detect_questions
-from summarizer import summarize_text
-from main import ask_chatgpt
+from flask import Flask, request, jsonify, render_template
+import pdfplumber
+import nltk
+from nltk.tokenize import sent_tokenize
+import openai
+import os
 
-st.title("📄 AI PDF Reader")
+# Ensure required NLTK package is downloaded
+nltk.download("punkt")
 
-# Upload PDF File
-uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
+app = Flask(__name__)
 
-if uploaded_file is not None:
-    pdf_text = extract_text_from_pdf(uploaded_file)
-    st.write("Extracted Text:")
-    st.text_area("PDF Content", pdf_text, height=200)
+# Function to extract text from PDF
+def extract_text_from_pdf(pdf_path):
+    with pdfplumber.open(pdf_path) as pdf:
+        text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
+    return text
 
-    # Summarize PDF
-    if st.button("Summarize PDF"):
-        summary = summarize_text(pdf_text, num_sentences=3)
-        st.write("**Summary:**", summary)
+# Function to detect questions
+def detect_questions(text):
+    sentences = sent_tokenize(text)
+    questions = [sent for sent in sentences if "?" in sent]
+    return questions
 
-    # Detect Questions in PDF
-    questions = detect_questions(pdf_text)
-    if questions:
-        st.write("Detected Questions:")
-        for q in questions:
-            st.write(f"- {q}")
-    else:
-        st.write("No questions detected.")
+# Function to get answers using OpenAI API
+def ask_openai(question, context):
+    openai.api_key = os.getenv("OPENAI_API_KEY")  # Ensure API key is set
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "system", "content": "You are an AI assistant."},
+                  {"role": "user", "content": f"Context: {context}\nQuestion: {question}"}]
+    )
+    return response["choices"][0]["message"]["content"]
 
-    # Ask a Question
-    question = st.text_input("Ask a Question:")
-    
-    if st.button("Get Answer"):
-        if question.strip():
-            answer = ask_chatgpt(question, pdf_text)
-            st.write("**Answer:**", answer)
-        else:
-            st.warning("Please enter a question.")
+# Home Route
+@app.route("/")
+def home():
+    return render_template("index.html")  # Create a frontend later
+
+# Upload PDF Route
+@app.route("/upload", methods=["POST"])
+def upload_pdf():
+    if "pdf" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    pdf_file = request.files["pdf"]
+    text = extract_text_from_pdf(pdf_file)
+    questions = detect_questions(text)
+
+    return jsonify({"extracted_text": text, "detected_questions": questions})
+
+# Ask Question Route
+@app.route("/ask", methods=["POST"])
+def ask_question():
+    data = request.json
+    question = data.get("question")
+    context = data.get("context")
+
+    if not question or not context:
+        return jsonify({"error": "Missing question or context"}), 400
+
+    answer = ask_openai(question, context)
+    return jsonify({"answer": answer})
+
+if __name__ == "__main__":
+    app.run(debug=True)
